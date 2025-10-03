@@ -1,16 +1,20 @@
-# Build Stage
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 5000
+
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy csproj and restore
+# Proje dosyalarını kopyala
 COPY ["AddressApp.API/AddressApp.API.csproj", "AddressApp.API/"]
 COPY ["AddressApp.Application/AddressApp.Application.csproj", "AddressApp.Application/"]
-COPY ["AddressApp.Core/AddressApp.Core.csproj", "AddressApp.Core/"]
 COPY ["AddressApp.Infrastructure/AddressApp.Infrastructure.csproj", "AddressApp.Infrastructure/"]
+COPY ["AddressApp.Domain/AddressApp.Domain.csproj", "AddressApp.Domain/"]
 
+# Restore
 RUN dotnet restore "AddressApp.API/AddressApp.API.csproj"
 
-# Copy everything else
+# Tüm kodu kopyala
 COPY . .
 
 # Build
@@ -21,11 +25,13 @@ RUN dotnet build "AddressApp.API.csproj" -c Release -o /app/build
 FROM build AS publish
 RUN dotnet publish "AddressApp.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-# Runtime Stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+# Final image
+FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-EXPOSE 5257
+# Environment
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://+:5000
 
 ENTRYPOINT ["dotnet", "AddressApp.API.dll"]

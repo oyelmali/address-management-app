@@ -34,8 +34,8 @@ var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 
 if (!string.IsNullOrEmpty(databaseUrl))
 {
-    // RAILWAY POSTGRESQL
-    Log.Information("🐘 Using PostgreSQL (Railway)");
+    // PRODUCTION: PostgreSQL
+    Log.Information("🐘 Using PostgreSQL (Production)");
     
     var databaseUri = new Uri(databaseUrl);
     var userInfo = databaseUri.UserInfo.Split(':');
@@ -53,8 +53,8 @@ if (!string.IsNullOrEmpty(databaseUrl))
 }
 else
 {
-    // LOCAL SQLITE
-    Log.Information("📁 Using SQLite (Local Development)");
+    // LOCAL: SQLite
+    Log.Information("📁 Using SQLite (Development)");
     
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
         ?? "Data Source=addresses.db";
@@ -70,12 +70,12 @@ builder.Services.AddAutoMapper(typeof(MappingProfile));
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IAddressParserService, AddressParserService>();
 
-// CORS
+// CORS - FIXED
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()  // Railway deployment için geçici olarak tüm origin'lere izin
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -83,7 +83,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Auto-migrate database on startup
+// Auto-migrate
 using (var scope = app.Services.CreateScope())
 {
     try
@@ -99,21 +99,24 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Swagger (always enabled for demo)
+// Swagger
 app.UseSwagger();
 app.UseSwaggerUI(c => 
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Address API v1");
-    c.RoutePrefix = string.Empty; // Swagger on root URL
+    c.RoutePrefix = string.Empty;
 });
 
 app.UseSerilogRequestLogging();
+
+// CORS - Use BEFORE other middleware
 app.UseCors("AllowFrontend");
+
 app.UseAuthorization();
 app.MapControllers();
 
-// Railway uses PORT environment variable
-var port = Environment.GetEnvironmentVariable("PORT") ?? "5257";
+// Port configuration
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
 app.Urls.Add($"http://0.0.0.0:{port}");
 
 Log.Information($"🚀 Application starting on port {port}");
