@@ -29,38 +29,45 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// ============================================
 // DATABASE CONFIGURATION
+// ============================================
+
+// Önce DATABASE_URL'i kontrol et (Railway production)
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+// Eğer yoksa, appsettings'ten PostgreSQL connection string'i al (yerel Railway test)
+var postgresConnectionString = builder.Configuration.GetConnectionString("PostgreSQL");
+
+// SQLite fallback
+var sqliteConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? "Data Source=addresses.db";
 
 if (!string.IsNullOrEmpty(databaseUrl))
 {
-    // PRODUCTION: PostgreSQL
-    Log.Information("🐘 Using PostgreSQL (Production)");
+    // PRODUCTION: Railway PostgreSQL (DATABASE_URL env variable)
+    Log.Information("🐘 Using PostgreSQL from DATABASE_URL (Railway Production)");
     
-    var databaseUri = new Uri(databaseUrl);
-    var userInfo = databaseUri.UserInfo.Split(':');
-    
-    var connectionString = $"Host={databaseUri.Host};" +
-                          $"Port={databaseUri.Port};" +
-                          $"Database={databaseUri.LocalPath.TrimStart('/')};" +
-                          $"Username={userInfo[0]};" +
-                          $"Password={userInfo[1]};" +
-                          $"SSL Mode=Require;" +
-                          $"Trust Server Certificate=true";
+    var connectionString = ConvertDatabaseUrl(databaseUrl);
     
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(connectionString));
 }
-else
+else if (!string.IsNullOrEmpty(postgresConnectionString))
 {
-    // LOCAL: SQLite
-    Log.Information("📁 Using SQLite (Development)");
-    
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-        ?? "Data Source=addresses.db";
+    // LOCAL: Railway PostgreSQL (appsettings.json'dan)
+    Log.Information("🐘 Using PostgreSQL from appsettings (Local Railway Test)");
     
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlite(connectionString));
+        options.UseNpgsql(postgresConnectionString));
+}
+else
+{
+    // LOCAL: SQLite (fallback)
+    Log.Information("📁 Using SQLite (Local Development)");
+    
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlite(sqliteConnectionString));
 }
 
 // AutoMapper
@@ -70,7 +77,7 @@ builder.Services.AddAutoMapper(typeof(MappingProfile));
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IAddressParserService, AddressParserService>();
 
-// CORS - FIXED
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -90,12 +97,23 @@ using (var scope = app.Services.CreateScope())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Log.Information("🔄 Applying database migrations...");
-        dbContext.Database.Migrate();
-        Log.Information("✅ Database ready!");
+        
+        var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+        if (pendingMigrations.Any())
+        {
+            Log.Information($"📋 Found {pendingMigrations.Count()} pending migration(s)");
+            await dbContext.Database.MigrateAsync();
+            Log.Information("✅ Migrations applied successfully!");
+        }
+        else
+        {
+            Log.Information("✅ Database is up to date!");
+        }
     }
     catch (Exception ex)
     {
         Log.Error(ex, "❌ Database migration failed");
+        throw; // Production'da uygulama başlamasın
     }
 }
 
@@ -104,7 +122,7 @@ app.UseSwagger();
 app.UseSwaggerUI(c => 
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Address API v1");
-    c.RoutePrefix = string.Empty;
+    c.RoutePrefix = string.Empty; // Swagger root'ta açılsın
 });
 
 app.UseSerilogRequestLogging();
@@ -120,4 +138,34 @@ var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
 app.Urls.Add($"http://0.0.0.0:{port}");
 
 Log.Information($"🚀 Application starting on port {port}");
+Log.Information($"🌍 Environment: {app.Environment.EnvironmentName}");
+
 app.Run();
+
+// ============================================
+// HELPER METHOD
+// ============================================
+static string ConvertDatabaseUrl(string databaseUrl)
+{
+    try
+    {
+        var databaseUri = new Uri(databaseUrl);
+        var userInfo = databaseUri.UserInfo.Split(':');
+        
+        var connectionString = $"Host={databaseUri.Host};" +
+                              $"Port={databaseUri.Port};" +
+                              $"Database={databaseUri.LocalPath.TrimStart('/')};" +
+                              $"Username={userInfo[0]};" +
+                              $"Password={userInfo[1]};" +
+                              $"SSL Mode=Require;" +
+                              $"Trust Server Certificate=true";
+        
+        Log.Information($"✅ Converted DATABASE_URL to connection string");
+        return connectionString;
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "❌ Failed to parse DATABASE_URL");
+        throw;
+    }
+}

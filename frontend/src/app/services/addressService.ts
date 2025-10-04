@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Address, CreateAddressDto, UpdateAddressDto, BulkImportResult } from '../types/address';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -40,6 +40,7 @@ export const addressService = {
   },
 
   async bulkImport(textAddresses: string[]): Promise<BulkImportResult> {
+    // Backend string[] bekliyor, doğrudan gönder
     const response = await apiClient.post<BulkImportResult>('/addresses/bulk-import', textAddresses);
     return response.data;
   },

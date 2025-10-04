@@ -21,7 +21,7 @@ export interface CreateAddressDto {
   workingHoursWeekend: string;
 }
 
-export interface UpdateAddressDto extends CreateAddressDto {}
+export type UpdateAddressDto = CreateAddressDto;
 
 export interface BulkImportResult {
   successCount: number;

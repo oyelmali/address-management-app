@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="12.0.1" />
     <PackageReference Include="FluentValidation" Version="11.9.0" />
+    <ProjectReference Include="..\AddressApp.Core\AddressApp.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

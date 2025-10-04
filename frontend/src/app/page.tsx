@@ -26,10 +26,7 @@ export default function HomePage() {
   // Track the current search term to prevent race conditions
   const currentSearchRef = useRef('');
 
-  // Load addresses on mount
-  useEffect(() => {
-    loadAddresses();
-  }, []);
+  
 
   // Client-side search helper
   const searchInAddress = useCallback((address: Address, term: string): boolean => {
@@ -94,7 +91,7 @@ export default function HomePage() {
     }
   }, [searchTerm, addresses, searchInAddress]);
 
-  const loadAddresses = async () => {
+  const loadAddresses = useCallback(async () => {
     try {
       setLoading(true);
       const data = await addressService.getAll();
@@ -106,7 +103,11 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadAddresses();
+  }, [loadAddresses]);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
