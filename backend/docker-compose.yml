@@ -1,46 +1,19 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: addressapp-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-      POSTGRES_DB: addressdb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - addressapp-network
-
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: addressapp-api
+    ports:
+      - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=addressdb;Username=postgres;Password=postgres123;SSL Mode=Prefer
-      - PORT=5000
-    ports:
-      - "5000:5000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - addressapp-network
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-
-networks:
-  addressapp-network:
-    driver: bridge
+      - ASPNETCORE_URLS=http://+:8080
+      - PORT=8080
+      - ConnectionStrings__DefaultConnection=User Id=postgres.cztqtxivdrkibtkczdrt;Password=Meryus.2855;Server=aws-1-eu-central-1.pooler.supabase.com;Port=5432;Database=postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
