@@ -84,12 +84,14 @@ src/
 └── AddressApp.Infrastructure/ # Infrastructure Layer
 ├── Data/ # Database context
 └── Repositories/ # Data access implementation
+```
+
 **Key Principles:**
 - **Dependency Inversion**: High-level modules don't depend on low-level modules
 - **Separation of Concerns**: Each layer has a specific responsibility
 - **Repository Pattern**: Abstraction over data access
 - **SOLID Principles**: Maintainable and testable code
-```
+
 
 ### Frontend - Component-Based Architecture
 ```bash
